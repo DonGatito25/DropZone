@@ -26,29 +26,29 @@ const textures = {
 //
 export default function App() {
   const [score, setScore] = useState(0);
-  const [flavor, setFlavor] = useState('None');
+  const [danger, setDanger] = useState('None');
   const [squares, setSquares] = useState([]);
-  const [resetCount, setResetCount] = useState(0);
   const animations = useRef([]);
   //
-  const spawnNewSquares = (numSquares = Math.floor(Math.random() * 4) + 1) => {
+  const spawnNewSquares = (
+    // numSquares = Math.floor(Math.random() * 4) + 1
+    numSquares = 2
+  ) => {
+    setSquares([])
     setTimeout(() => {
       const colors = ['blue', 'green', 'orange', 'purple', 'red', 'white'];
       const newSquares = [];
       //
       if (numSquares === 1) {
+        let availableColors = ['blue', 'green', 'orange', 'purple', 'white'];
+        let newColor = availableColors[Math.floor(Math.random() * availableColors.length)];
+        //
+        if (danger.toLowerCase() === newColor.toLowerCase()) {
+          newColor = 'white';
+        }
+        //
         animations.current.forEach(anim => anim.stop());
         animations.current = [];
-        //
-        let availableColors = ['blue', 'green', 'orange', 'purple', 'white'];
-        //
-        if (flavor === 'Orange') {
-          availableColors = availableColors.filter(color => color !== 'orange');
-        }
-        if (flavor === 'Blueberry') {
-          availableColors = availableColors.filter(color => color !== 'blue');
-        }
-        const newColor = availableColors[Math.floor(Math.random() * availableColors.length)];
         //
         const startX = Math.random() * (width - SQUARE_SIZE);
         const startY = Math.random() * (height - SQUARE_SIZE);
@@ -57,21 +57,23 @@ export default function App() {
         setSquares([{ pan, color: newColor }]);
         return;
       }
-      if (numSquares === 2 && newSquares.includes('red') || numSquares === 3 && newSquares.includes('red')) {
-        newSquares.filter(x => x !== 'red');
-        //
+      if (numSquares === 2) {
         animations.current.forEach(anim => anim.stop());
         animations.current = [];
+        let newColor = colors[Math.floor(Math.random() * colors.length)];
         //
-        let availableColors = ['green', 'purple', 'white'];
+        if (danger.toLowerCase() === newColor && newSquares.includes('red')) {
+          newColor = colors[Math.floor(Math.random() * colors.filter(x => x !== danger).length)];
+        }
         //
         const startX = Math.random() * (width - SQUARE_SIZE);
         const startY = Math.random() * (height - SQUARE_SIZE);
-        const newColor = availableColors[Math.floor(Math.random() * availableColors.length)];
         //
         const pan = new Animated.ValueXY({ x: startX, y: startY });
         setSquares([{ pan, color: newColor }]);
-        return;
+      }
+      if (numSquares === 3) {
+
       }
       //
       animations.current.forEach(anim => anim.stop());
@@ -246,12 +248,12 @@ export default function App() {
       onPanResponderRelease: () => {
         pan.flattenOffset();
         if (isOverTarget(pan) && squares[index].color === 'orange') {
-          setFlavor('Orange');
-          setScore(prev => (flavor === 'Orange' ? prev - 2 : prev + 1 - 1));
+          setDanger('Orange');
+          setScore(prev => (danger === 'Orange' ? prev - 2 : prev + 1 - 1));
         }
         if (isOverTarget(pan) && squares[index].color === 'blue') {
-          setFlavor('Blueberry');
-          setScore(prev => (flavor === 'Blueberry' ? prev - 2 : prev + 1 - 1));
+          setDanger('Blue');
+          setScore(prev => (danger === 'Blue' ? prev - 2 : prev + 1 - 1));
         }
         if (isOverTarget(pan) && squares[index].color === 'green') {
           setScore(prev => prev + 2 - 1);
@@ -281,7 +283,7 @@ export default function App() {
       <View style={styles.gameContainer}>
         <View style={styles.textOverlay} pointerEvents="none">
           <Text style={styles.scoreText}>Score: {score}</Text>
-          <Text style={styles.flavorText}>Flavor: {flavor}</Text>
+          <Text style={styles.dangerText}>Danger: {danger}</Text>
         </View>
         <Image source={textures.target} style={styles.targetSquare} />
         {squares.map((square, index) => (
@@ -314,7 +316,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: TARGET_SIZE,
     height: TARGET_SIZE,
-    backgroundColor: 'gray',
     left: width / 2 - TARGET_SIZE / 2,
     top: height / 2 - TARGET_SIZE / 2,
   },
@@ -332,7 +333,7 @@ const styles = StyleSheet.create({
     color: 'white',
     textStroke: '2px'
   },
-  flavorText: {
+  dangerText: {
     position: 'absolute',
     top: 50,
     left: 20,

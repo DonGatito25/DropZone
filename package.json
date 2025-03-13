@@ -39,7 +39,7 @@
     "@react-navigation/stack": "^6.3.0",
     "@shopify/flash-list": "1.7.3",
     "date-fns": "^2.29.3",
-    "expo": "^52.0.37",
+    "expo": "^52.0.38",
     "expo-application": "~6.0.2",
     "expo-dev-client": "~5.0.12",
     "expo-image": "~2.0.6",
