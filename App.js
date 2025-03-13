@@ -63,7 +63,8 @@ export default function App() {
         let newColor = colors[Math.floor(Math.random() * colors.length)];
         //
         if (danger.toLowerCase() === newColor && newSquares.includes('red')) {
-          newColor = colors[Math.floor(Math.random() * colors.filter(x => x !== danger).length)];
+          const filtered = colors.filter(x => x !== danger);
+          newColor = filtered[Math.floor(Math.random() * filtered.length)];
         }
         //
         const startX = Math.random() * (width - SQUARE_SIZE);
@@ -161,7 +162,7 @@ export default function App() {
   useEffect(() => {
     squares.forEach((square, index) => {
       if (square.color === 'red') {
-        moveRed(index);
+        // moveRed(index);
       }
       if (square.color === 'purple') {
         telPurp(index);
