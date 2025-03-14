@@ -31,8 +31,7 @@ export default function App() {
   const animations = useRef([]);
   //
   const spawnNewSquares = (
-    // numSquares = Math.floor(Math.random() * 4) + 1
-    numSquares = 2
+    numSquares = Math.floor(Math.random() * 4) + 1
   ) => {
     setSquares([])
     setTimeout(() => {
@@ -50,33 +49,28 @@ export default function App() {
         animations.current.forEach(anim => anim.stop());
         animations.current = [];
         //
-        const startX = Math.random() * (width - SQUARE_SIZE);
-        const startY = Math.random() * (height - SQUARE_SIZE);
+        const startX = (Math.random() * (width - SQUARE_SIZE)) - 5;
+        const startY = (Math.random() * (height - SQUARE_SIZE)) - 5;
         //
         const pan = new Animated.ValueXY({ x: startX, y: startY });
         setSquares([{ pan, color: newColor }]);
         return;
       }
-      if (numSquares === 2) {
+      if (numSquares === 2 || numSquares === 3 || numSquares === 4) {
         animations.current.forEach(anim => anim.stop());
         animations.current = [];
         let newColor = colors[Math.floor(Math.random() * colors.length)];
         //
-        if (danger.toLowerCase() === newColor && newSquares.includes('red')) {
-          const filtered = colors.filter(x => x !== danger);
-          newColor = filtered[Math.floor(Math.random() * filtered.length)];
+        if ((danger.toLowerCase() === newColor.toLowerCase()) && newSquares.includes('red')) {
+          newColor = 'white';
         }
         //
-        const startX = Math.random() * (width - SQUARE_SIZE);
-        const startY = Math.random() * (height - SQUARE_SIZE);
+        const startX = Math.random() * (width - SQUARE_SIZE) - 10;
+        const startY = Math.random() * (height - SQUARE_SIZE) - 10;
         //
         const pan = new Animated.ValueXY({ x: startX, y: startY });
         setSquares([{ pan, color: newColor }]);
       }
-      if (numSquares === 3) {
-
-      }
-      //
       animations.current.forEach(anim => anim.stop());
       animations.current = [];
       //
@@ -162,7 +156,7 @@ export default function App() {
   useEffect(() => {
     squares.forEach((square, index) => {
       if (square.color === 'red') {
-        // moveRed(index);
+        moveRed(index);
       }
       if (square.color === 'purple') {
         telPurp(index);
@@ -188,26 +182,6 @@ export default function App() {
     teleport();
   };
   //
-  const isOverTarget = (pan) => {
-    animations.current.forEach(anim => anim.stop());
-    animations.current = [];
-    //
-    const squareX = pan.x.__getValue();
-    const squareY = pan.y.__getValue();
-    const targetX = width / 2 - TARGET_SIZE / 2;
-    const targetY = height / 2 - TARGET_SIZE / 2;
-    //
-    if (
-      squareX < targetX + TARGET_SIZE &&
-      squareX + SQUARE_SIZE > targetX &&
-      squareY < targetY + TARGET_SIZE &&
-      squareY + SQUARE_SIZE > targetY
-    ) {
-      return true;
-    }
-    return false;
-  };
-  //
   const moveRed = (index) => {
     const square = squares[index];
     const pan = square.pan;
@@ -216,7 +190,7 @@ export default function App() {
     const targetY = height / 2 - TARGET_SIZE / 2;
     //
     const animation = Animated.timing(pan, {
-      toValue: { x: targetX + 20, y: targetY + 20 },
+      toValue: { x: targetX + 18, y: targetY + 18 },
       duration: 3000,
       useNativeDriver: false
     });
@@ -227,11 +201,33 @@ export default function App() {
       setTimeout(() => {
         if (isOverTarget(pan)) {
           setScore(prev => prev - 1);
-          resetGame();
+          resetGame()
         }
       }, 50);
     });
   };
+  //
+  const isOverTarget = (pan) => {
+    const squareX = pan.x.__getValue();
+    const squareY = pan.y.__getValue();
+    const targetX = width / 2 - TARGET_SIZE / 2;
+    const targetY = height / 2 - TARGET_SIZE / 2;
+
+    const isOver = (
+      squareX < targetX + TARGET_SIZE &&
+      squareX + SQUARE_SIZE > targetX &&
+      squareY < targetY + TARGET_SIZE &&
+      squareY + SQUARE_SIZE > targetY
+    );
+
+    if (isOver) {
+      animations.current.forEach(anim => anim.stop());
+      animations.current = [];
+    }
+
+    return isOver;
+  };
+
   //
   const panResponder = (index) => {
     if (squares[index].color === 'red') {
