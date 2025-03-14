@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "Expo Starter",
+    "name": "DropZone",
     "slug": "expo-starter",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/white.png",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "scheme": "myapp",
     "splash": {

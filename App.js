@@ -32,7 +32,7 @@ export default function App() {
   const animations = useRef([])
   //
   const spawnNewSquares = (
-    numSquares = Math.floor(Math.random() * 4) + 1
+    numSquares = Math.floor(Math.random() * 5) + 1
   ) => {
     setSquares([])
     setTimeout(() => {
@@ -40,6 +40,11 @@ export default function App() {
       const colors = score > 40 ? [...baseColors, "pink"] : baseColors
       //
       const newSquares = []
+      //
+      // Add padding to ensure squares are fully visible
+      const PADDING = 10
+      const safeWidth = width - SQUARE_SIZE - PADDING
+      const safeHeight = height - SQUARE_SIZE - PADDING
       //
       if (numSquares === 1) {
         let availableColors = ["blue", "green", "orange", "purple", "white"]
@@ -54,8 +59,9 @@ export default function App() {
         animations.current.forEach((anim) => anim.stop())
         animations.current = []
         //
-        const startX = Math.random() * (width - SQUARE_SIZE) - 5
-        const startY = Math.random() * (height - SQUARE_SIZE) - 5
+        // Fix: Ensure square is within bounds with padding
+        const startX = PADDING + Math.random() * (safeWidth - PADDING)
+        const startY = PADDING + Math.random() * (safeHeight - PADDING)
         //
         const pan = new Animated.ValueXY({ x: startX, y: startY })
         setSquares([{ pan, color: newColor }])
@@ -67,33 +73,32 @@ export default function App() {
       //
       let redCount = 0
       let greenCount = 0
-      let pinkCount = 0 //
+      let pinkCount = 0
       const minSpacing = SQUARE_SIZE * 1.5
       //
       while (newSquares.length < numSquares) {
         const side = Math.floor(Math.random() * 4)
-        let startX = 0,
-          startY = 0
+        let startX = 0, startY = 0
         let tooClose
         //
         do {
           tooClose = false
           switch (side) {
-            case 0:
-              startX = Math.random() * (width - SQUARE_SIZE)
-              startY = 0
+            case 0: // top
+              startX = PADDING + Math.random() * (safeWidth - PADDING)
+              startY = PADDING
               break
-            case 1:
-              startX = width - SQUARE_SIZE
-              startY = Math.random() * (height - SQUARE_SIZE)
+            case 1: // right
+              startX = safeWidth
+              startY = PADDING + Math.random() * (safeHeight - PADDING)
               break
-            case 2:
-              startX = Math.random() * (width - SQUARE_SIZE)
-              startY = height - SQUARE_SIZE
+            case 2: // bottom
+              startX = PADDING + Math.random() * (safeWidth - PADDING)
+              startY = safeHeight
               break
-            case 3:
-              startX = 0
-              startY = Math.random() * (height - SQUARE_SIZE)
+            case 3: // left
+              startX = PADDING
+              startY = PADDING + Math.random() * (safeHeight - PADDING)
               break
           }
           //
@@ -108,6 +113,7 @@ export default function App() {
           }
         } while (tooClose)
         //
+        // Rest of your color selection logic remains the same
         let availableColors = [...colors]
         //
         if (redCount >= 3) {
@@ -124,11 +130,9 @@ export default function App() {
           if (numSquares === 2 && redCount >= 1) {
             availableColors = availableColors.filter((color) => color.toLowerCase() !== danger.toLowerCase() && color !== 'pink')
           }
-          //
           else if (numSquares === 3 && redCount >= 2) {
             availableColors = availableColors.filter((color) => color.toLowerCase() !== danger.toLowerCase() && color !== 'pink')
           }
-          //
           else if (numSquares === 4 && redCount >= 3) {
             availableColors = availableColors.filter((color) => color.toLowerCase() !== danger.toLowerCase() && color !== 'pink')
           }
@@ -180,10 +184,10 @@ export default function App() {
   useEffect(() => {
     squares.forEach((square, index) => {
       if (square.color === "red") {
-        // moveRed(index)
+        moveRed(index)
       }
       if (square.color === "purple") {
-        // telPurp(index)
+        telPurp(index)
       }
     })
   }, [squares])
