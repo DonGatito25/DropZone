@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef } from "react";
+import { Platform } from 'react-native';
 import {
   SafeAreaView,
   Text,
@@ -15,13 +16,13 @@ const TARGET_SIZE = 100
 const { width, height } = Dimensions.get("window")
 //
 const textures = {
-  blue: require("./assets/blue.png"),
-  green: require("./assets/green.png"),
-  orange: require("./assets/orange.png"),
-  purple: require("./assets/purple.png"),
-  red: require("./assets/red.png"),
-  white: require("./assets/white.png"),
-  pink: require("./assets/pink.png"), //
+  blue: require("./assets/colors/blue.png"),
+  green: require("./assets/colors/green.png"),
+  orange: require("./assets/colors/orange.png"),
+  purple: require("./assets/colors/purple.png"),
+  red: require("./assets/colors/red.png"),
+  white: require("./assets/colors/white.png"),
+  pink: require("./assets/colors/pink.png"),
   target: require("./assets/target.png"),
 }
 //
@@ -30,6 +31,50 @@ export default function App() {
   const [danger, setDanger] = useState("None")
   const [squares, setSquares] = useState([])
   const animations = useRef([])
+  //
+  const spawnSquare = (color) => {
+    if (!["blue", "green", "orange", "purple", "red", "white", "pink"].includes(color)) {
+      console.log("Invalid color. Use: blue, green, orange, purple, red, white, or pink")
+      return;
+    }
+    //
+    const PADDING = 10
+    const safeWidth = width - SQUARE_SIZE - PADDING
+    const safeHeight = height - SQUARE_SIZE - PADDING
+    //
+    const startX = PADDING + Math.random() * (safeWidth - PADDING)
+    const startY = PADDING + Math.random() * (safeHeight - PADDING)
+    //
+    const pan = new Animated.ValueXY({ x: startX, y: startY })
+    //
+    setSquares(prev => [...prev, { pan, color }])
+    setTimeout(() => {
+      if (color === "red") {
+        moveRed(squares.length)
+      }
+      if (color === "purple") {
+        telPurp(squares.length)
+      }
+    }, 100)
+    //
+    return "Square spawned with color: " + color
+  }
+  //
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      window.spawnSquare = spawnSquare
+    } else {
+      global.spawnSquare = spawnSquare
+    }
+    //
+    return () => {
+      if (Platform.OS === 'web') {
+        delete window.spawnSquare
+      } else {
+        delete global.spawnSquare
+      }
+    }
+  }, [squares.length])
   //
   const spawnNewSquares = (
     numSquares = Math.floor(Math.random() * 5) + 1
@@ -41,7 +86,6 @@ export default function App() {
       //
       const newSquares = []
       //
-      // Add padding to ensure squares are fully visible
       const PADDING = 10
       const safeWidth = width - SQUARE_SIZE - PADDING
       const safeHeight = height - SQUARE_SIZE - PADDING
@@ -59,7 +103,6 @@ export default function App() {
         animations.current.forEach((anim) => anim.stop())
         animations.current = []
         //
-        // Fix: Ensure square is within bounds with padding
         const startX = PADDING + Math.random() * (safeWidth - PADDING)
         const startY = PADDING + Math.random() * (safeHeight - PADDING)
         //
@@ -113,7 +156,6 @@ export default function App() {
           }
         } while (tooClose)
         //
-        // Rest of your color selection logic remains the same
         let availableColors = [...colors]
         //
         if (redCount >= 3) {
