@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { Platform } from 'react-native';
 import {
   SafeAreaView,
+  Platform,
   Text,
   View,
   StyleSheet,
@@ -57,7 +57,7 @@ export default function App() {
       }
     }, 100)
     //
-    return "Square spawned with color: " + color
+    return "Square spawned with color: " + color.toUpperCase()
   }
   //
   useEffect(() => {
