@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react"
 import {
   SafeAreaView,
   Platform,
@@ -33,9 +33,9 @@ export default function App() {
   const animations = useRef([])
   //
   const spawnSquare = (color) => {
-    if (!["blue", "green", "orange", "purple", "red", "white", "pink"].includes(color)) {
+    if (!["blue", "green", "orange", "purple", "red", "white", "pink"].includes(color.toLowerCase())) {
       console.log("Invalid color. Use: blue, green, orange, purple, red, white, or pink")
-      return;
+      return
     }
     //
     const PADDING = 10
@@ -81,8 +81,8 @@ export default function App() {
   ) => {
     setSquares([])
     setTimeout(() => {
-      const baseColors = ["blue", "green", "orange", "purple", "red", "white"]
-      const colors = score > 40 ? [...baseColors, "pink"] : baseColors
+      const baseColors = ["blue", "green", "orange", "purple", "white"]
+      const colors = score > 40 ? [...baseColors, "red", "pink"] : score > 10 ? [...baseColors, "red"] : baseColors
       //
       const newSquares = []
       //
