@@ -319,23 +319,28 @@ export default function App() {
         }
         if (isOverTarget(pan) && squares[index].color === "orange") {
           setDanger("Orange")
-          setScore((prev) => (danger === "Orange" ? prev - 2 : prev + 1 - 1))
+          setScore((prev) => (danger === "Orange" ? prev - 2 : prev + 1))
+          return
         }
         if (isOverTarget(pan) && squares[index].color === "blue") {
           setDanger("Blue")
-          setScore((prev) => (danger === "Blue" ? prev - 2 : prev + 1 - 1))
+          setScore((prev) => (danger === "Blue" ? prev - 2 : prev + 1))
+          return
         }
         if (isOverTarget(pan) && squares[index].color === "green") {
-          setScore((prev) => prev + 2 - 1)
+          setScore((prev) => prev + 2)
           spawnNewSquares()
+          return
         }
         if (isOverTarget(pan) && squares[index].color === "purple") {
-          setScore((prev) => prev + 3 - 1)
+          setScore((prev) => prev + 3)
           spawnNewSquares()
+          return
         }
         if (isOverTarget(pan)) {
           setScore((prev) => prev + 1)
           spawnNewSquares()
+          return
         }
       },
     })
@@ -376,7 +381,7 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#2c8bc9",
+    backgroundColor: "beige",
   },
   gameContainer: {
     flex: 1,
@@ -400,7 +405,7 @@ const styles = StyleSheet.create({
     left: 20,
     fontSize: 24,
     fontWeight: "bold",
-    color: "white",
+    color: "black",
     textStroke: "2px",
   },
   dangerText: {
@@ -409,7 +414,7 @@ const styles = StyleSheet.create({
     left: 20,
     fontSize: 24,
     fontWeight: "bold",
-    color: "white",
+    color: "black",
   },
   instructions: {
     position: "absolute",
