@@ -1,12 +1,11 @@
-"use client"
-
 import { useState, useEffect, useRef } from "react"
 import { SafeAreaView, Platform, Text, View, StyleSheet, Animated, PanResponder, Dimensions, Image } from "react-native"
-//
+import BlackCrate from "./black-crate"
+
 const SQUARE_SIZE = 60
 const TARGET_SIZE = 100
 const { width, height } = Dimensions.get("window")
-//
+
 const textures = {
   black: require("./assets/colors/black.png"),
   blue: require("./assets/colors/blue.png"),
@@ -23,15 +22,6 @@ const textures = {
   target: require("./assets/target.png"),
 }
 
-// Create a separate component for the black square value display
-const BlackValueDisplay = ({ value }) => {
-  return (
-    <View style={styles.blackValueContainer}>
-      <Text style={styles.blackValueText}>{value}</Text>
-    </View>
-  )
-}
-//
 export default function App() {
   const [score, setScore] = useState(0)
   const [danger, setDanger] = useState("None")
@@ -39,101 +29,163 @@ export default function App() {
   const [round, setRound] = useState(1)
   const [purplePaused, setPurplePaused] = useState(false)
   const [redDuration, setRedDuration] = useState(3000)
-  // Add a separate state for black values that won't trigger re-renders of the entire component
-  const [blackValueState, setBlackValueState] = useState({})
+
   const animations = useRef([])
-  const blackValueTimers = useRef({})
-  const blackValues = useRef({})
   const cyanEffectTimer = useRef(null)
-  //
+  const purpleTimers = useRef({})
+  const squaresRef = useRef([])
+
+  useEffect(() => {
+    squaresRef.current = squares
+  }, [squares])
+
+  const isOverTarget = (pan) => {
+    const squareX = typeof pan.x._value !== "undefined" ? pan.x._value : pan.x.__getValue()
+    const squareY = typeof pan.y._value !== "undefined" ? pan.y._value : pan.y.__getValue()
+
+    const targetX = width / 2 - TARGET_SIZE / 2
+    const targetY = height / 2 - TARGET_SIZE / 2
+
+    const isOver =
+      squareX < targetX + TARGET_SIZE &&
+      squareX + SQUARE_SIZE > targetX &&
+      squareY < targetY + TARGET_SIZE &&
+      squareY + SQUARE_SIZE > targetY
+
+    if (isOver) {
+      animations.current.forEach((anim) => anim.stop())
+      animations.current = []
+    }
+    return isOver
+  }
+
   const spawnSquare = (color) => {
     if (
-      !["blue", "green", "orange", "purple", "red", "brown", "pink", "white", "black", "yellow", "cyan"].includes(
-        color.toLowerCase(),
+      !["blue", "green", "orange", "purple", "red", "brown", "pink", "white", "black", "yellow", "cyan", "gray"].includes(
+        color.toLowerCase()
       )
     ) {
-      console.log("Invalid color. Use: blue, green, orange, purple, red, brown, pink, white, black, yellow, or cyan")
+      console.log("Invalid color.")
       return
     }
-    //
+
     const PADDING = 10
     const safeWidth = width - SQUARE_SIZE - PADDING
     const safeHeight = height - SQUARE_SIZE - PADDING
-    //
+
     const startX = PADDING + Math.random() * (safeWidth - PADDING)
     const startY = PADDING + Math.random() * (safeHeight - PADDING)
-    //
-    const pan = new Animated.ValueXY({ x: startX, y: startY })
-    //
-    const newSquareIndex = squares.length
-    setSquares((prev) => [...prev, { pan, color }])
 
-    setTimeout(() => {
-      if (color === "red") {
-        moveRed(newSquareIndex)
-      }
-      if (color === "purple" && !purplePaused) {
-        telPurp(newSquareIndex)
-      }
-      if (color === "black") {
-        decBlack(newSquareIndex)
-      }
-    }, 100)
-    //
+    const pan = new Animated.ValueXY({ x: startX, y: startY })
+    const id = Date.now() + Math.random().toString(36).substr(2, 9)
+
+    setSquares((prev) => {
+      const newSquareIndex = prev.length
+      const newSquares = [
+        ...prev,
+        {
+          pan,
+          color,
+          position: { x: startX, y: startY },
+          id,
+        },
+      ]
+
+      setTimeout(() => {
+        if (color === "red") {
+          moveRed(newSquareIndex)
+        }
+        if (color === "purple" && !purplePaused) {
+          startPurpleTeleport(id)
+        }
+      }, 100)
+
+      return newSquares
+    })
+
     return "Square spawned with color: " + color.toUpperCase()
   }
-  //
-  const decBlack = (index) => {
-    blackValues.current[index] = 5
-    // Update the separate state for black values
-    setBlackValueState((prev) => ({
-      ...prev,
-      [index]: 5,
-    }))
-    //
-    const timer = setInterval(() => {
-      if (blackValues.current[index] > 0) {
-        blackValues.current[index] -= 1
-        // Update only the black value state, not the entire squares array
-        setBlackValueState((prev) => ({
-          ...prev,
-          [index]: blackValues.current[index],
-        }))
-      } else {
-        clearInterval(blackValueTimers.current[index])
+
+  const startPurpleTeleport = (id) => {
+    if (purplePaused) return
+
+    if (purpleTimers.current[id]) {
+      clearTimeout(purpleTimers.current[id])
+    }
+
+    const teleport = () => {
+      const currentSquares = squaresRef.current
+      const squareIndex = currentSquares.findIndex((sq) => sq.id === id)
+
+      if (squareIndex === -1) {
+        if (purpleTimers.current[id]) {
+          clearTimeout(purpleTimers.current[id])
+          delete purpleTimers.current[id]
+        }
+        return
       }
-    }, 400)
-    //
-    blackValueTimers.current[index] = timer
+
+      const square = currentSquares[squareIndex]
+
+      if (square && square.color === "purple" && !purplePaused) {
+        const pan = square.pan
+        const newX = Math.random() * (width - SQUARE_SIZE)
+        const newY = Math.random() * (height - SQUARE_SIZE)
+
+        pan.stopAnimation()
+        pan.setValue({
+          x: Math.max(0, Math.min(newX, width - SQUARE_SIZE)),
+          y: Math.max(0, Math.min(newY, height - SQUARE_SIZE)),
+        })
+
+        purpleTimers.current[id] = setTimeout(() => teleport(), 750)
+      } else {
+        if (purpleTimers.current[id]) {
+          clearTimeout(purpleTimers.current[id])
+          delete purpleTimers.current[id]
+        }
+      }
+    }
+
+    teleport()
   }
-  //
-  useEffect(() => {
-    return () => {
-      Object.values(blackValueTimers.current).forEach((timer) => {
-        clearInterval(timer)
-      })
-      if (cyanEffectTimer.current) {
-        clearTimeout(cyanEffectTimer.current)
-      }
+
+  const telPurp = (index) => {
+    const square = squares[index]
+    if (square && square.color === "purple") {
+      startPurpleTeleport(square.id)
     }
-  }, [])
-  //
-  useEffect(() => {
-    if (Platform.OS === "web") {
-      window.spawnSquare = spawnSquare
-    } else {
-      global.spawnSquare = spawnSquare
-    }
-    //
-    return () => {
-      if (Platform.OS === "web") {
-        delete window.spawnSquare
-      } else {
-        delete global.spawnSquare
-      }
-    }
-  }, [squares.length])
-  //
+  }
+
+  const moveRed = (index) => {
+    const square = squares[index]
+    if (!square || square.color !== "red") return
+
+    const pan = square.pan
+
+    const targetX = width / 2 - TARGET_SIZE / 2
+    const targetY = height / 2 - TARGET_SIZE / 2
+
+    pan.stopAnimation()
+
+    const animation = Animated.timing(pan, {
+      toValue: { x: targetX + 18, y: targetY + 18 },
+      duration: redDuration,
+      useNativeDriver: false,
+    })
+
+    animations.current.push(animation)
+
+    animation.start(() => {
+      setTimeout(() => {
+        if (isOverTarget(pan)) {
+          setScore((prev) => prev - 1)
+          resetGame()
+        }
+      }, 50)
+    })
+  }
+
   const iceCyan = () => {
     setRedDuration(9000)
 
@@ -146,40 +198,122 @@ export default function App() {
       cyanEffectTimer.current = null
     }, 10000)
   }
-  //
-  const spawnNewSquares = (numSquares = Math.floor(Math.random() * 5) + 1) => {
-    Object.values(blackValueTimers.current).forEach((timer) => {
-      clearInterval(timer)
+
+  const panResponder = (index) => {
+    if (squares[index].color === "red") {
+      return { panHandlers: {} }
+    }
+
+    const pan = squares[index].pan
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        pan.setOffset({ x: pan.x.__getValue(), y: pan.y.__getValue() })
+        pan.setValue({ x: 0, y: 0 })
+      },
+      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], { useNativeDriver: false }),
+      onPanResponderRelease: () => {
+        pan.flattenOffset()
+
+        if (isOverTarget(pan) && squares[index].color === "pink") {
+          setScore(0)
+          spawnNewSquares()
+          return
+        }
+        if (isOverTarget(pan) && squares[index].color === "orange") {
+          setDanger("Orange")
+          setScore((prev) => (danger === "Orange" ? prev - 1 : prev + 1))
+          spawnNewSquares()
+          return
+        }
+        if (isOverTarget(pan) && squares[index].color === "blue") {
+          setDanger("Blue")
+          setScore((prev) => (danger === "Blue" ? prev - 1 : prev + 1))
+          spawnNewSquares()
+          return
+        }
+        if (isOverTarget(pan) && squares[index].color === "green") {
+          setScore((prev) => prev + 2)
+          spawnNewSquares()
+          return
+        }
+        if (isOverTarget(pan) && squares[index].color === "purple") {
+          const squareId = squares[index].id
+          if (purpleTimers.current[squareId]) {
+            clearTimeout(purpleTimers.current[squareId])
+            delete purpleTimers.current[squareId]
+          }
+
+          setPurplePaused(false)
+          setScore((prev) => prev + 3)
+          spawnNewSquares()
+          return
+        }
+        if (isOverTarget(pan) && squares[index].color === "yellow") {
+          setPurplePaused(true)
+          setScore((prev) => prev + 1)
+          spawnNewSquares()
+          return
+        }
+        if (isOverTarget(pan) && squares[index].color === "cyan") {
+          iceCyan()
+          setScore((prev) => prev + 1)
+          spawnNewSquares()
+          return
+        }
+        if (isOverTarget(pan) && squares[index].color === "white") {
+          setDanger("None")
+          setScore((prev) => prev + 1)
+          spawnNewSquares()
+          return
+        }
+        if (isOverTarget(pan)) {
+          setScore((prev) => prev + 1)
+          spawnNewSquares()
+          return
+        }
+      },
     })
-    blackValueTimers.current = {}
-    blackValues.current = {}
-    setBlackValueState({}) // Reset the black value state
-    //
+  }
+
+  const handleBlackCrateRelease = (value) => {
+    setScore((prev) => prev + value)
+    spawnNewSquares()
+  }
+
+  const spawnNewSquares = (numSquares = Math.floor(Math.random() * 5) + 1) => {
+    animations.current.forEach((anim) => anim.stop())
+    animations.current = []
+
+    Object.values(purpleTimers.current).forEach((timer) => clearTimeout(timer))
+    purpleTimers.current = {}
+
     setSquares([])
     setRound((prevRound) => prevRound + 1)
 
     setTimeout(() => {
-      //
-      const baseColors = ["blue", "green", "orange", "purple", "brown", "cyan", "black"]
+      const baseColors = ["blue", "green", "orange", "purple", "brown",]
       const colors =
         score > 60
           ? [...baseColors, "red", "pink", "black"]
           : score > 30
-            ? [...baseColors, "red", "black"]
-            : score > 10
-              ? [...baseColors, "red"]
-              : baseColors
-      //
+            ? [...baseColors, "red", "cyan", "black"]
+            : score > 12
+              ? [...baseColors, "red", "cyan", "yellow"]
+              : score > 10
+                ? [...baseColors, "red"]
+                : baseColors
+
       const shouldSpawnWhite = round % 30 === 0
       const shouldSpawnYellow = round % 12 === 0
       const shouldSpawnCyan = round % 12 === 0
-      //
+
       const newSquares = []
-      //
+
       const PADDING = 10
       const safeWidth = width - SQUARE_SIZE - PADDING
       const safeHeight = height - SQUARE_SIZE - PADDING
-      //
+
       if (numSquares === 1) {
         let availableColors = ["blue", "green", "orange", "purple", "brown", "black"]
 
@@ -198,33 +332,34 @@ export default function App() {
         }
 
         const newColor = availableColors[Math.floor(Math.random() * availableColors.length)]
-        //
-        animations.current.forEach((anim) => anim.stop())
-        animations.current = []
-        //
+
         const startX = PADDING + Math.random() * (safeWidth - PADDING)
         const startY = PADDING + Math.random() * (safeHeight - PADDING)
-        //
-        const pan = new Animated.ValueXY({ x: startX, y: startY })
-        const newSquareIndex = 0
-        setSquares([{ pan, color: newColor }])
 
-        // Initialize special behaviors
+        const pan = new Animated.ValueXY({ x: startX, y: startY })
+        const id = Date.now() + Math.random().toString(36).substr(2, 9)
+
+        const newSquare = {
+          pan,
+          color: newColor,
+          position: { x: startX, y: startY },
+          id,
+        }
+
+        setSquares([newSquare])
+
         setTimeout(() => {
-          if (newColor === "black") {
-            decBlack(newSquareIndex)
+          if (newColor === "red") {
+            moveRed(0)
           }
           if (newColor === "purple" && !purplePaused) {
-            telPurp(newSquareIndex)
+            startPurpleTeleport(id)
           }
         }, 100)
 
         return
       }
-      //
-      animations.current.forEach((anim) => anim.stop())
-      animations.current = []
-      //
+
       let redCount = 0
       let greenCount = 0
       let pinkCount = 0
@@ -234,13 +369,13 @@ export default function App() {
       let yellowCount = 0
       let cyanCount = 0
       const minSpacing = SQUARE_SIZE * 1.5
-      //
+
       while (newSquares.length < numSquares) {
         const side = Math.floor(Math.random() * 4)
         let startX = 0,
           startY = 0
         let tooClose
-        //
+
         do {
           tooClose = false
           switch (side) {
@@ -261,18 +396,18 @@ export default function App() {
               startY = PADDING + Math.random() * (safeHeight - PADDING)
               break
           }
-          //
+
           for (const square of newSquares) {
             if (
-              Math.abs(square.pan.x._value - startX) < minSpacing &&
-              Math.abs(square.pan.y._value - startY) < minSpacing
+              Math.abs(square.position.x - startX) < minSpacing &&
+              Math.abs(square.position.y - startY) < minSpacing
             ) {
               tooClose = true
               break
             }
           }
         } while (tooClose)
-        //
+
         let availableColors = [...colors]
 
         if (shouldSpawnWhite && whiteCount === 0) {
@@ -316,7 +451,6 @@ export default function App() {
           availableColors = availableColors.filter((color) => color !== "purple")
         }
 
-        //
         if (danger !== "None") {
           if (numSquares === 2 && redCount >= 1) {
             availableColors = availableColors.filter(
@@ -332,24 +466,21 @@ export default function App() {
             )
           }
         }
-        //
+
         if (availableColors.length === 0) {
           availableColors = ["gray"]
         }
-        //
+
         let newColor = availableColors[Math.floor(Math.random() * availableColors.length)]
 
-        // If it's a white spawn round and we haven't added white yet, prioritize white
         if (shouldSpawnWhite && whiteCount === 0 && availableColors.includes("white")) {
           newColor = "white"
         }
 
-        // If it's a yellow spawn round and we haven't added yellow yet, prioritize yellow
         if (shouldSpawnYellow && yellowCount === 0 && availableColors.includes("yellow")) {
           newColor = "yellow"
         }
 
-        // If it's a cyan spawn round and we haven't added cyan yet, prioritize cyan
         if (shouldSpawnCyan && cyanCount === 0 && availableColors.includes("cyan")) {
           newColor = "cyan"
         }
@@ -358,14 +489,14 @@ export default function App() {
           acc[square.color] = (acc[square.color] || 0) + 1
           return acc
         }, {})
-        //
+
         if (colorCounts[newColor] === numSquares - 1) {
           availableColors = availableColors.filter((color) => color !== newColor)
           if (availableColors.length > 0) {
             newColor = availableColors[Math.floor(Math.random() * availableColors.length)]
           }
         }
-        //
+
         if (newColor === "red") redCount++
         if (newColor === "green") greenCount++
         if (newColor === "pink") pinkCount++
@@ -374,10 +505,17 @@ export default function App() {
         if (newColor === "purple") purpleCount++
         if (newColor === "yellow") yellowCount++
         if (newColor === "cyan") cyanCount++
-        //
+
         const pan = new Animated.ValueXY({ x: startX, y: startY })
-        newSquares.push({ pan, color: newColor })
-        //
+        const id = Date.now() + Math.random().toString(36).substr(2, 9) + newSquares.length
+
+        newSquares.push({
+          pan,
+          color: newColor,
+          position: { x: startX, y: startY },
+          id,
+        })
+
         const uniqueColors = new Set(newSquares.map((sq) => sq.color))
         if (
           newSquares.length >= 4 &&
@@ -391,231 +529,144 @@ export default function App() {
 
       setSquares(newSquares)
 
-      // Initialize special behaviors
-      newSquares.forEach((square, index) => {
-        setTimeout(() => {
-          if (square.color === "black") {
-            decBlack(index)
+      const purpleSquareIds = newSquares.filter((square) => square.color === "purple").map((square) => square.id)
+
+      setTimeout(() => {
+        newSquares.forEach((square, index) => {
+          if (square.color === "red") {
+            moveRed(index)
           }
-          if (square.color === "purple" && !purplePaused) {
-            telPurp(index)
-          }
-        }, 100)
-      })
+        })
+
+        if (!purplePaused) {
+          purpleSquareIds.forEach((id) => {
+            startPurpleTeleport(id)
+          })
+        }
+      }, 100)
     }, 500)
   }
-  //
+
   useEffect(() => {
     spawnNewSquares()
+
+    return () => {
+      animations.current.forEach((anim) => anim.stop())
+      if (cyanEffectTimer.current) {
+        clearTimeout(cyanEffectTimer.current)
+      }
+      Object.values(purpleTimers.current).forEach((timer) => clearTimeout(timer))
+    }
   }, [])
-  //
+
+  useEffect(() => {
+    if (Platform.OS === "web") {
+      window.spawnSquare = spawnSquare
+    } else {
+      global.spawnSquare = spawnSquare
+    }
+
+    return () => {
+      if (Platform.OS === "web") {
+        delete window.spawnSquare
+      } else {
+        delete global.spawnSquare
+      }
+    }
+  }, [squares.length])
+
   useEffect(() => {
     squares.forEach((square, index) => {
       if (square.color === "red") {
         moveRed(index)
       }
     })
+  }, [squares, redDuration])
 
-    if (!purplePaused) {
-      squares.forEach((square, index) => {
+  useEffect(() => {
+    if (purplePaused) {
+      Object.values(purpleTimers.current).forEach((timer) => clearTimeout(timer))
+      purpleTimers.current = {}
+    } else {
+      squares.forEach((square) => {
         if (square.color === "purple") {
-          telPurp(index)
+          startPurpleTeleport(square.id)
         }
       })
     }
-  }, [squares, purplePaused])
-  //
-  const telPurp = (index) => {
-    if (purplePaused) return
+  }, [purplePaused])
 
-    const teleport = () => {
-      if (squares[index] && squares[index].color === "purple" && !purplePaused) {
-        const pan = squares[index].pan
-        const newX = Math.random() * (width - SQUARE_SIZE)
-        const newY = Math.random() * (height - SQUARE_SIZE)
-        //
-        pan.stopAnimation()
-        pan.setValue({
-          x: Math.max(0, Math.min(newX, width - SQUARE_SIZE)),
-          y: Math.max(0, Math.min(newY, height - SQUARE_SIZE)),
-        })
-        setTimeout(teleport, 750)
-      }
-    }
-    teleport()
-  }
-  //
-  const moveRed = (index) => {
-    const square = squares[index]
-    const pan = square.pan
-    //
-    const targetX = width / 2 - TARGET_SIZE / 2
-    const targetY = height / 2 - TARGET_SIZE / 2
-    //
-    const animation = Animated.timing(pan, {
-      toValue: { x: targetX + 18, y: targetY + 18 },
-      duration: redDuration,
-      useNativeDriver: false,
-    })
-    //
-    animations.current.push(animation)
-    //
-    animation.start(() => {
-      setTimeout(() => {
-        if (isOverTarget(pan)) {
-          setScore((prev) => prev - 1)
-          resetGame()
-        }
-      }, 50)
-    })
-  }
-  //
-  const isOverTarget = (pan) => {
-    const squareX = pan.x.__getValue()
-    const squareY = pan.y.__getValue()
-    const targetX = width / 2 - TARGET_SIZE / 2
-    const targetY = height / 2 - TARGET_SIZE / 2
-    //
-    const isOver =
-      squareX < targetX + TARGET_SIZE &&
-      squareX + SQUARE_SIZE > targetX &&
-      squareY < targetY + TARGET_SIZE &&
-      squareY + SQUARE_SIZE > targetY
-    //
-    if (isOver) {
-      animations.current.forEach((anim) => anim.stop())
-      animations.current = []
-    }
-    return isOver
-  }
-  //
-  const panResponder = (index) => {
-    if (squares[index].color === "red") {
-      return { panHandlers: {} }
-    }
-    //
-    const pan = squares[index].pan
-    return PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        pan.setOffset({ x: pan.x.__getValue(), y: pan.y.__getValue() })
-        pan.setValue({ x: 0, y: 0 })
-      },
-      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], { useNativeDriver: false }),
-      onPanResponderRelease: () => {
-        pan.flattenOffset()
-        //
-        if (isOverTarget(pan) && squares[index].color === "pink") {
-          setScore(0)
-          spawnNewSquares()
-          return
-        }
-        if (isOverTarget(pan) && squares[index].color === "orange") {
-          setDanger("Orange")
-          setScore((prev) => (danger === "Orange" ? prev - 1 : prev + 1))
-          spawnNewSquares()
-          return
-        }
-        if (isOverTarget(pan) && squares[index].color === "blue") {
-          setDanger("Blue")
-          setScore((prev) => (danger === "Blue" ? prev - 1 : prev + 1))
-          spawnNewSquares()
-          return
-        }
-        if (isOverTarget(pan) && squares[index].color === "green") {
-          setScore((prev) => prev + 2)
-          spawnNewSquares()
-          return
-        }
-        if (isOverTarget(pan) && squares[index].color === "purple") {
-          setPurplePaused(false)
-          setScore((prev) => prev + 3)
-          spawnNewSquares()
-          return
-        }
-        if (isOverTarget(pan) && squares[index].color === "yellow") {
-          setPurplePaused(true)
-          setScore((prev) => prev + 1)
-          spawnNewSquares()
-          return
-        }
-        if (isOverTarget(pan) && squares[index].color === "cyan") {
-          iceCyan()
-          setScore((prev) => prev + 1)
-          spawnNewSquares()
-          return
-        }
-        if (isOverTarget(pan) && squares[index].color === "white") {
-          setDanger("None")
-          setScore((prev) => prev + 1)
-          spawnNewSquares()
-          return
-        }
-        if (isOverTarget(pan) && squares[index].color === "black") {
-          const blackValue = blackValues.current[index] || 0
-
-          if (blackValueTimers.current[index]) {
-            clearInterval(blackValueTimers.current[index])
-            delete blackValueTimers.current[index]
-          }
-
-          setScore((prev) => prev + blackValue)
-          spawnNewSquares()
-          return
-        }
-        if (isOverTarget(pan)) {
-          setScore((prev) => prev + 1)
-          spawnNewSquares()
-          return
-        }
-      },
-    })
-  }
-  //
   const resetGame = () => {
-    Object.values(blackValueTimers.current).forEach((timer) => {
-      clearInterval(timer)
-    })
-    blackValueTimers.current = {}
-    blackValues.current = {}
-    setBlackValueState({}) // Reset the black value state
 
     animations.current.forEach((anim) => anim.stop())
     animations.current = []
+
+    Object.values(purpleTimers.current).forEach((timer) => clearTimeout(timer))
+    purpleTimers.current = {}
+
     setSquares([])
     spawnNewSquares()
   }
-  //
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.gameContainer}>
         <View style={styles.textOverlay} pointerEvents="none">
           <Text style={styles.scoreText}>Score: {score}</Text>
-          <Text style={styles.dangerText}>Danger: {danger}</Text>
-          <Text style={styles.purpleStatusText}>Purple: {purplePaused ? "OFFLINE" : "Active"}</Text>
-          <Text style={styles.redDurationText}>Red Speed: {redDuration === 3000 ? "Normal" : "Slow (Cyan)"}</Text>
+          <Text style={styles.dangerText}>
+            Danger:{" "}
+            <Text
+              style={{
+                color: danger === "Blue" ? "blue" : danger === "Orange" ? "orange" : "black",
+                fontWeight: "bold",
+              }}
+            >
+              {danger}
+            </Text>
+          </Text>
+          <Text style={styles.purpleStatusText}>
+            Purple:{" "}
+            <Text style={{ color: purplePaused ? "red" : "green" }}>
+              {purplePaused ? "OFFLINE" : "ACTIVE"}
+            </Text>
+          </Text>
+          <Text style={styles.redDurationText}>
+            Red:{" "}
+            <Text style={{ color: redDuration === 3000 ? "red" : "lightblue" }}>
+              {redDuration === 3000 ? "Normal" : "Iced"}
+            </Text>
+          </Text>
         </View>
         <Image source={textures.target} style={styles.targetSquare} />
-        {squares.map((square, index) => (
-          <Animated.View
-            key={index}
-            style={{
-              ...styles.draggableSquare,
-              transform: [{ translateX: square.pan.x }, { translateY: square.pan.y }],
-            }}
-            {...panResponder(index).panHandlers}
-          >
-            <Image source={textures[square.color]} style={{ width: SQUARE_SIZE + 5, height: SQUARE_SIZE + 5 }} />
-            {square.color === "black" && (
-              <BlackValueDisplay value={blackValueState[index] !== undefined ? blackValueState[index] : 5} />
-            )}
-          </Animated.View>
-        ))}
+
+        {squares.map((square, index) =>
+          square.color === "black" ? (
+            <BlackCrate
+              key={`black-${square.id}`}
+              initialPosition={{ x: square.pan.x._value, y: square.pan.y._value }}
+              onRelease={handleBlackCrateRelease}
+              textures={textures}
+              SQUARE_SIZE={SQUARE_SIZE}
+              isOverTarget={isOverTarget}
+            />
+          ) : (
+            <Animated.View
+              key={`square-${square.id}`}
+              style={{
+                ...styles.draggableSquare,
+                transform: [{ translateX: square.pan.x }, { translateY: square.pan.y }],
+              }}
+              {...panResponder(index).panHandlers}
+            >
+              <Image source={textures[square.color]} style={{ width: SQUARE_SIZE + 5, height: SQUARE_SIZE + 5 }} />
+            </Animated.View>
+          ),
+        )}
       </View>
     </SafeAreaView>
   )
 }
-//
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -660,7 +711,7 @@ const styles = StyleSheet.create({
     left: 20,
     fontSize: 24,
     fontWeight: "bold",
-    color: "purple",
+    color: "black",
   },
   redDurationText: {
     position: "absolute",
@@ -668,39 +719,7 @@ const styles = StyleSheet.create({
     left: 20,
     fontSize: 24,
     fontWeight: "bold",
-    color: "cyan",
-  },
-  specialRoundsText: {
-    position: "absolute",
-    top: 140,
-    left: 20,
-    fontSize: 20,
-    fontWeight: "bold",
     color: "black",
-  },
-  blackValueContainer: {
-    position: "absolute",
-    top: 0,
-    right: -5,
-    backgroundColor: "white",
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  blackValueText: {
-    color: "black",
-    fontWeight: "bold",
-    fontSize: 14,
-  },
-  instructions: {
-    position: "absolute",
-    bottom: 40,
-    alignSelf: "center",
-    fontSize: 18,
-    textAlign: "center",
-    paddingHorizontal: 20,
   },
   textOverlay: {
     position: "absolute",
