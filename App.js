@@ -1,15 +1,7 @@
+"use client"
+
 import { useState, useEffect, useRef } from "react"
-import {
-  SafeAreaView,
-  Platform,
-  Text,
-  View,
-  StyleSheet,
-  Animated,
-  PanResponder,
-  Dimensions,
-  Image
-} from "react-native"
+import { SafeAreaView, Platform, Text, View, StyleSheet, Animated, PanResponder, Dimensions, Image } from "react-native"
 //
 const SQUARE_SIZE = 60
 const TARGET_SIZE = 100
@@ -19,8 +11,8 @@ const textures = {
   black: require("./assets/colors/black.png"),
   blue: require("./assets/colors/blue.png"),
   brown: require("./assets/colors/brown.png"),
-  // cyan: require("./assets/colors/cyan.png"),
-  // gray: require("./assets/colors/gray.png"),
+  cyan: require("./assets/colors/cyan.png"),
+  gray: require("./assets/colors/gray.png"),
   green: require("./assets/colors/green.png"),
   orange: require("./assets/colors/orange.png"),
   pink: require("./assets/colors/pink.png"),
@@ -30,6 +22,15 @@ const textures = {
   yellow: require("./assets/colors/yellow.png"),
   target: require("./assets/target.png"),
 }
+
+// Create a separate component for the black square value display
+const BlackValueDisplay = ({ value }) => {
+  return (
+    <View style={styles.blackValueContainer}>
+      <Text style={styles.blackValueText}>{value}</Text>
+    </View>
+  )
+}
 //
 export default function App() {
   const [score, setScore] = useState(0)
@@ -37,33 +38,23 @@ export default function App() {
   const [squares, setSquares] = useState([])
   const [round, setRound] = useState(1)
   const [purplePaused, setPurplePaused] = useState(false)
+  const [redDuration, setRedDuration] = useState(3000)
+  // Add a separate state for black values that won't trigger re-renders of the entire component
+  const [blackValueState, setBlackValueState] = useState({})
   const animations = useRef([])
   const blackValueTimers = useRef({})
   const blackValues = useRef({})
+  const cyanEffectTimer = useRef(null)
   //
   const spawnSquare = (color) => {
-    if (!["blue", "green", "orange", "purple", "red", "brown", "pink", "white", "black", "yellow"].includes(color.toLowerCase())) {
-      console.log("Invalid color. Use: blue, green, orange, purple, red, brown, pink, white, black, or yellow")
+    if (
+      !["blue", "green", "orange", "purple", "red", "brown", "pink", "white", "black", "yellow", "cyan"].includes(
+        color.toLowerCase(),
+      )
+    ) {
+      console.log("Invalid color. Use: blue, green, orange, purple, red, brown, pink, white, black, yellow, or cyan")
       return
     }
-
-    // Check for conflicts between black and purple
-    if (color === "black" && squares.some(square => square.color === "purple")) {
-      console.log("Cannot spawn black when purple is present")
-      return
-    }
-
-    if (color === "purple" && squares.some(square => square.color === "black")) {
-      console.log("Cannot spawn purple when black is present")
-      return
-    }
-
-    // Check if it's a valid round for yellow
-    if (color === "yellow" && round % 12 !== 0) {
-      console.log("Yellow can only spawn on rounds divisible by 12")
-      return
-    }
-
     //
     const PADDING = 10
     const safeWidth = width - SQUARE_SIZE - PADDING
@@ -75,7 +66,7 @@ export default function App() {
     const pan = new Animated.ValueXY({ x: startX, y: startY })
     //
     const newSquareIndex = squares.length
-    setSquares(prev => [...prev, { pan, color }])
+    setSquares((prev) => [...prev, { pan, color }])
 
     setTimeout(() => {
       if (color === "red") {
@@ -94,11 +85,20 @@ export default function App() {
   //
   const decBlack = (index) => {
     blackValues.current[index] = 5
+    // Update the separate state for black values
+    setBlackValueState((prev) => ({
+      ...prev,
+      [index]: 5,
+    }))
     //
     const timer = setInterval(() => {
       if (blackValues.current[index] > 0) {
         blackValues.current[index] -= 1
-        setSquares(prev => [...prev])
+        // Update only the black value state, not the entire squares array
+        setBlackValueState((prev) => ({
+          ...prev,
+          [index]: blackValues.current[index],
+        }))
       } else {
         clearInterval(blackValueTimers.current[index])
       }
@@ -109,21 +109,24 @@ export default function App() {
   //
   useEffect(() => {
     return () => {
-      Object.values(blackValueTimers.current).forEach(timer => {
+      Object.values(blackValueTimers.current).forEach((timer) => {
         clearInterval(timer)
       })
+      if (cyanEffectTimer.current) {
+        clearTimeout(cyanEffectTimer.current)
+      }
     }
   }, [])
   //
   useEffect(() => {
-    if (Platform.OS === 'web') {
+    if (Platform.OS === "web") {
       window.spawnSquare = spawnSquare
     } else {
       global.spawnSquare = spawnSquare
     }
     //
     return () => {
-      if (Platform.OS === 'web') {
+      if (Platform.OS === "web") {
         delete window.spawnSquare
       } else {
         delete global.spawnSquare
@@ -131,25 +134,45 @@ export default function App() {
     }
   }, [squares.length])
   //
-  const spawnNewSquares = (
-    numSquares = Math.floor(Math.random() * 5) + 1
-  ) => {
-    Object.values(blackValueTimers.current).forEach(timer => {
+  const iceCyan = () => {
+    setRedDuration(9000)
+
+    if (cyanEffectTimer.current) {
+      clearTimeout(cyanEffectTimer.current)
+    }
+
+    cyanEffectTimer.current = setTimeout(() => {
+      setRedDuration(3000)
+      cyanEffectTimer.current = null
+    }, 10000)
+  }
+  //
+  const spawnNewSquares = (numSquares = Math.floor(Math.random() * 5) + 1) => {
+    Object.values(blackValueTimers.current).forEach((timer) => {
       clearInterval(timer)
     })
     blackValueTimers.current = {}
     blackValues.current = {}
+    setBlackValueState({}) // Reset the black value state
     //
     setSquares([])
-    setRound(prevRound => prevRound + 1)
+    setRound((prevRound) => prevRound + 1)
 
     setTimeout(() => {
       //
       const baseColors = ["blue", "green", "orange", "purple", "brown", "cyan", "black"]
-      const colors = score > 60 ? [...baseColors, "red", "pink", "black"] : score > 30 ? [...baseColors, "red", "black"] : score > 10 ? [...baseColors, "red"] : baseColors
+      const colors =
+        score > 60
+          ? [...baseColors, "red", "pink", "black"]
+          : score > 30
+            ? [...baseColors, "red", "black"]
+            : score > 10
+              ? [...baseColors, "red"]
+              : baseColors
       //
       const shouldSpawnWhite = round % 30 === 0
       const shouldSpawnYellow = round % 12 === 0
+      const shouldSpawnCyan = round % 12 === 0
       //
       const newSquares = []
       //
@@ -160,19 +183,17 @@ export default function App() {
       if (numSquares === 1) {
         let availableColors = ["blue", "green", "orange", "purple", "brown", "black"]
 
-        // If it's a white spawn round, force white
         if (shouldSpawnWhite) {
           availableColors = ["white"]
-        }
-        // If it's a yellow spawn round, force yellow
-        else if (shouldSpawnYellow) {
+        } else if (shouldSpawnYellow) {
           availableColors = ["yellow"]
-        }
-        else {
+        } else if (shouldSpawnCyan) {
+          availableColors = ["cyan"]
+        } else {
           availableColors = availableColors.filter((color) => color.toLowerCase() !== danger.toLowerCase())
 
           if (availableColors.length === 0) {
-            availableColors = ["brown"]
+            availableColors = ["gray"]
           }
         }
 
@@ -211,11 +232,13 @@ export default function App() {
       let blackCount = 0
       let purpleCount = 0
       let yellowCount = 0
+      let cyanCount = 0
       const minSpacing = SQUARE_SIZE * 1.5
       //
       while (newSquares.length < numSquares) {
         const side = Math.floor(Math.random() * 4)
-        let startX = 0, startY = 0
+        let startX = 0,
+          startY = 0
         let tooClose
         //
         do {
@@ -252,14 +275,16 @@ export default function App() {
         //
         let availableColors = [...colors]
 
-        // Add white to available colors if it's a white spawn round and we haven't added one yet
         if (shouldSpawnWhite && whiteCount === 0) {
           availableColors.push("white")
         }
 
-        // Add yellow to available colors if it's a yellow spawn round and we haven't added one yet
         if (shouldSpawnYellow && yellowCount === 0) {
           availableColors.push("yellow")
+        }
+
+        if (shouldSpawnCyan && cyanCount === 0) {
+          availableColors.push("cyan")
         }
 
         if (redCount >= 3) {
@@ -274,14 +299,16 @@ export default function App() {
         if (whiteCount >= 1) {
           availableColors = availableColors.filter((color) => color !== "white")
         }
-        if (blackCount >= 2) { // Limit black squares to 2 per spawn
+        if (blackCount >= 2) {
           availableColors = availableColors.filter((color) => color !== "black")
         }
-        if (yellowCount >= 1) { // Limit yellow squares to 1 per spawn
+        if (yellowCount >= 1) {
           availableColors = availableColors.filter((color) => color !== "yellow")
         }
+        if (cyanCount >= 1) {
+          availableColors = availableColors.filter((color) => color !== "cyan")
+        }
 
-        // Prevent black and purple from appearing together
         if (purpleCount > 0) {
           availableColors = availableColors.filter((color) => color !== "black")
         }
@@ -292,18 +319,22 @@ export default function App() {
         //
         if (danger !== "None") {
           if (numSquares === 2 && redCount >= 1) {
-            availableColors = availableColors.filter((color) => color.toLowerCase() !== danger.toLowerCase() && color !== 'pink')
-          }
-          else if (numSquares === 3 && redCount >= 2) {
-            availableColors = availableColors.filter((color) => color.toLowerCase() !== danger.toLowerCase() && color !== 'pink')
-          }
-          else if (numSquares === 4 && redCount >= 3) {
-            availableColors = availableColors.filter((color) => color.toLowerCase() !== danger.toLowerCase() && color !== 'pink')
+            availableColors = availableColors.filter(
+              (color) => color.toLowerCase() !== danger.toLowerCase() && color !== "pink",
+            )
+          } else if (numSquares === 3 && redCount >= 2) {
+            availableColors = availableColors.filter(
+              (color) => color.toLowerCase() !== danger.toLowerCase() && color !== "pink",
+            )
+          } else if (numSquares === 4 && redCount >= 3) {
+            availableColors = availableColors.filter(
+              (color) => color.toLowerCase() !== danger.toLowerCase() && color !== "pink",
+            )
           }
         }
         //
         if (availableColors.length === 0) {
-          availableColors = ["brown"]
+          availableColors = ["gray"]
         }
         //
         let newColor = availableColors[Math.floor(Math.random() * availableColors.length)]
@@ -316,6 +347,11 @@ export default function App() {
         // If it's a yellow spawn round and we haven't added yellow yet, prioritize yellow
         if (shouldSpawnYellow && yellowCount === 0 && availableColors.includes("yellow")) {
           newColor = "yellow"
+        }
+
+        // If it's a cyan spawn round and we haven't added cyan yet, prioritize cyan
+        if (shouldSpawnCyan && cyanCount === 0 && availableColors.includes("cyan")) {
+          newColor = "cyan"
         }
 
         const colorCounts = newSquares.reduce((acc, square) => {
@@ -337,6 +373,7 @@ export default function App() {
         if (newColor === "black") blackCount++
         if (newColor === "purple") purpleCount++
         if (newColor === "yellow") yellowCount++
+        if (newColor === "cyan") cyanCount++
         //
         const pan = new Animated.ValueXY({ x: startX, y: startY })
         newSquares.push({ pan, color: newColor })
@@ -378,7 +415,7 @@ export default function App() {
         moveRed(index)
       }
     })
-    // Only start teleportation for purple squares if not paused
+
     if (!purplePaused) {
       squares.forEach((square, index) => {
         if (square.color === "purple") {
@@ -389,11 +426,9 @@ export default function App() {
   }, [squares, purplePaused])
   //
   const telPurp = (index) => {
-    // Don't teleport if purple is paused
     if (purplePaused) return
 
     const teleport = () => {
-      // Check if the square still exists and if purple is not paused
       if (squares[index] && squares[index].color === "purple" && !purplePaused) {
         const pan = squares[index].pan
         const newX = Math.random() * (width - SQUARE_SIZE)
@@ -419,7 +454,7 @@ export default function App() {
     //
     const animation = Animated.timing(pan, {
       toValue: { x: targetX + 18, y: targetY + 18 },
-      duration: 3000,
+      duration: redDuration,
       useNativeDriver: false,
     })
     //
@@ -478,7 +513,7 @@ export default function App() {
         if (isOverTarget(pan) && squares[index].color === "orange") {
           setDanger("Orange")
           setScore((prev) => (danger === "Orange" ? prev - 1 : prev + 1))
-          spawnNewSquares();
+          spawnNewSquares()
           return
         }
         if (isOverTarget(pan) && squares[index].color === "blue") {
@@ -493,36 +528,37 @@ export default function App() {
           return
         }
         if (isOverTarget(pan) && squares[index].color === "purple") {
-          // Resume purple teleportation when a purple square is scored
           setPurplePaused(false)
           setScore((prev) => prev + 3)
           spawnNewSquares()
           return
         }
         if (isOverTarget(pan) && squares[index].color === "yellow") {
-          // Pause purple teleportation when a yellow square is scored
           setPurplePaused(true)
           setScore((prev) => prev + 1)
           spawnNewSquares()
           return
         }
+        if (isOverTarget(pan) && squares[index].color === "cyan") {
+          iceCyan()
+          setScore((prev) => prev + 1)
+          spawnNewSquares()
+          return
+        }
         if (isOverTarget(pan) && squares[index].color === "white") {
-          setDanger("None") // Reset danger to None
+          setDanger("None")
           setScore((prev) => prev + 1)
           spawnNewSquares()
           return
         }
         if (isOverTarget(pan) && squares[index].color === "black") {
-          // Get the current value of the black square (or 0 if not found)
           const blackValue = blackValues.current[index] || 0
 
-          // Clear the timer for this black square
           if (blackValueTimers.current[index]) {
             clearInterval(blackValueTimers.current[index])
             delete blackValueTimers.current[index]
           }
 
-          // Add the current value to the score
           setScore((prev) => prev + blackValue)
           spawnNewSquares()
           return
@@ -537,21 +573,17 @@ export default function App() {
   }
   //
   const resetGame = () => {
-    // Clear all black value timers
-    Object.values(blackValueTimers.current).forEach(timer => {
+    Object.values(blackValueTimers.current).forEach((timer) => {
       clearInterval(timer)
     })
     blackValueTimers.current = {}
     blackValues.current = {}
+    setBlackValueState({}) // Reset the black value state
 
     animations.current.forEach((anim) => anim.stop())
     animations.current = []
     setSquares([])
     spawnNewSquares()
-  }
-  //
-  const getBlackValue = (index) => {
-    return blackValues.current[index] !== undefined ? blackValues.current[index] : 5
   }
   //
   return (
@@ -560,9 +592,8 @@ export default function App() {
         <View style={styles.textOverlay} pointerEvents="none">
           <Text style={styles.scoreText}>Score: {score}</Text>
           <Text style={styles.dangerText}>Danger: {danger}</Text>
-          <Text style={styles.purpleStatusText}>
-            Purple: {purplePaused ? "OFFLINE" : "Active"}
-          </Text>
+          <Text style={styles.purpleStatusText}>Purple: {purplePaused ? "OFFLINE" : "Active"}</Text>
+          <Text style={styles.redDurationText}>Red Speed: {redDuration === 3000 ? "Normal" : "Slow (Cyan)"}</Text>
         </View>
         <Image source={textures.target} style={styles.targetSquare} />
         {squares.map((square, index) => (
@@ -576,9 +607,7 @@ export default function App() {
           >
             <Image source={textures[square.color]} style={{ width: SQUARE_SIZE + 5, height: SQUARE_SIZE + 5 }} />
             {square.color === "black" && (
-              <View style={styles.blackValueContainer}>
-                <Text style={styles.blackValueText}>{getBlackValue(index)}</Text>
-              </View>
+              <BlackValueDisplay value={blackValueState[index] !== undefined ? blackValueState[index] : 5} />
             )}
           </Animated.View>
         ))}
@@ -632,6 +661,14 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     color: "purple",
+  },
+  redDurationText: {
+    position: "absolute",
+    top: 110,
+    left: 20,
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "cyan",
   },
   specialRoundsText: {
     position: "absolute",
